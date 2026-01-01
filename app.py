@@ -1,12 +1,12 @@
-from flask import Flask, render_template, request, jsonify
+import os
 import requests
+from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# 티어 이름 변환 테이블 (0~30)
+# 티어 이름 정의
 TIER_NAMES = [
-    "Unrated", 
-    "B5", "B4", "B3", "B2", "B1", 
+    "Unrated", "B5", "B4", "B3", "B2", "B1", 
     "S5", "S4", "S3", "S2", "S1", 
     "G5", "G4", "G3", "G2", "G1", 
     "P5", "P4", "P3", "P2", "P1",
@@ -22,20 +22,17 @@ def index():
 def get_problem():
     tier = request.args.get('tier', 13)
     handle = request.args.get('handle', '')
-    
-    # 쿼리: 특정 티어 + 유저가 안 푼 문제
     query = f"tier:{tier} !@{handle} lang:ko"
-    url = f"https://solved.ac/api/v3/search/problem?query={query}&sort=random"
     
+    url = f"https://solved.ac/api/v3/search/problem?query={query}&sort=random"
     try:
         res = requests.get(url, timeout=5)
         if res.status_code == 200:
             items = res.json().get('items', [])
             if items:
                 return jsonify(items[0])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    
+    except:
+        pass
     return jsonify({"error": "문제를 찾을 수 없습니다."}), 404
 
 @app.route('/check-status')
@@ -43,10 +40,6 @@ def check_status():
     handle = request.args.get('handle')
     problem_id = request.args.get('problemId')
     
-    if not handle or not problem_id:
-        return jsonify({"solved": False})
-
-    # Solved.ac 검색 쿼리로 해당 유저가 문제를 풀었는지 대조
     url = f"https://solved.ac/api/v3/search/problem?query=id:{problem_id} @{handle}"
     try:
         res = requests.get(url, timeout=5)
@@ -58,5 +51,7 @@ def check_status():
     return jsonify({"solved": False})
 
 if __name__ == '__main__':
-    # 5000번 포트에서 실행
-    app.run(port=5000, debug=True)
+    # Railway/Render 등 배포 환경에서 할당한 포트를 사용함
+    # host='0.0.0.0'은 외부 모든 접속을 허용한다는 설정 (필수)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
