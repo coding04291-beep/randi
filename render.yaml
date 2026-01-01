@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: bj-random-defense
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
