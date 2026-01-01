@@ -123,9 +123,9 @@
         }
 
         async function giveUp() {
+            // 이제 포기를 해도 streak은 0으로 초기화되지 않습니다.
             state.tier = Math.max(1, state.tier - 1);
-            state.streak = 0;
-            alert("포기하셨습니다. 티어가 하락합니다.");
+            alert("포기하셨습니다. 티어는 하락하지만 스트릭은 유지됩니다.");
             await fetchProblem();
         }
 
