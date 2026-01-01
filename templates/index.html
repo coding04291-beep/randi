@@ -86,11 +86,11 @@
                 if(data.problemId) {
                     state.prob = data;
                     state.startTime = Date.now();
-                    state.isSolved = false; // 새 문제니까 다시 미해결 상태
+                    state.isSolved = false;
                     save();
                     renderGame();
                 }
-            } catch(e) { alert("서버 통신 에러!"); }
+            } catch(e) { alert("문제를 불러오는 데 실패했습니다."); }
         }
 
         function renderGame() {
@@ -103,7 +103,6 @@
             document.getElementById('prob-title').innerText = state.prob.titleKo;
             document.getElementById('prob-link').href = `https://www.acmicpc.net/problem/${state.prob.problemId}`;
             
-            // UI 상태 복구
             if(state.isSolved) {
                 showNextButton();
             } else {
@@ -118,7 +117,7 @@
                 const remain = 3600 - Math.floor((Date.now() - state.startTime) / 1000);
                 if(remain <= 0) { 
                     clearInterval(window.timerInt);
-                    alert("시간 초과! 티어가 하락합니다."); 
+                    alert("시간 초과!"); 
                     giveUp();
                 }
                 const m = Math.floor(remain/60);
@@ -137,7 +136,7 @@
                 clearInterval(window.timerInt);
                 showNextButton();
             } else {
-                alert("아직 안 풀었거나 Solved.ac 반영 전입니다.");
+                alert("아직 안 풀었거나 반영 전입니다.");
             }
         }
 
@@ -145,13 +144,13 @@
             document.getElementById('action-buttons').classList.add('hidden');
             document.getElementById('btn-next').classList.remove('hidden');
             document.getElementById('timer').innerText = "DONE!";
-            document.getElementById('timer').classList.replace('text-rose-500', 'text-emerald-500');
+            document.getElementById('timer').className = "text-3xl font-mono font-bold text-emerald-500";
         }
 
         function showActionButtons() {
             document.getElementById('action-buttons').classList.remove('hidden');
             document.getElementById('btn-next').classList.add('hidden');
-            document.getElementById('timer').classList.replace('text-emerald-500', 'text-rose-500');
+            document.getElementById('timer').className = "text-3xl font-mono font-bold text-rose-500";
         }
 
         async function nextProblem() {
@@ -160,17 +159,32 @@
         }
 
         async function giveUp() {
-            state.tier = Math.max(1, state.tier - 1);
-            alert("포기하셨습니다. 티어가 하락합니다.");
-            await fetchProblem();
+            if (state.streak > 0) {
+                // 스트릭이 있으면 1 감소하고 티어 하락 후 새 문제
+                state.streak--;
+                state.tier = Math.max(1, state.tier - 1);
+                alert(`포기하셨습니다. 스트릭 1 감소 (현재: ${state.streak}), 티어 하락.`);
+                await fetchProblem();
+            } else {
+                // 스트릭이 0인 상태에서 포기하면 완전 초기화
+                alert("스트릭이 0인 상태에서 포기하여 게임을 초기화합니다.");
+                forceReset();
+            }
         }
 
-        function resetGame() {
-            if(!confirm("모든 데이터가 초기화됩니다.")) return;
+        function forceReset() {
             clearInterval(window.timerInt);
             state = { isPlaying: false, tier: 13, streak: 0, handle: '', startTime: null, prob: null, isSolved: false };
             localStorage.removeItem('ud_save');
-            location.reload();
+            document.getElementById('game-area').classList.add('hidden');
+            document.getElementById('streak-ui').classList.add('hidden');
+            document.getElementById('setup-area').classList.remove('hidden');
+            document.getElementById('handle').value = '';
+        }
+
+        function resetGame() {
+            if(!confirm("진행 상황을 모두 삭제하시겠습니까?")) return;
+            forceReset();
         }
     </script>
 </body>
