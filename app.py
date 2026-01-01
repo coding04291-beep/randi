@@ -2,8 +2,9 @@ import os
 import requests
 from flask import Flask, render_template, request, jsonify
 
-app = Flask(__name__)
-
+# 폴더 경로를 명시적으로 지정하여 크래시 방지
+template_dir = os.path.abspath('templates')
+app = Flask(__name__, template_folder=template_dir)
 # 티어 이름 정의
 TIER_NAMES = [
     "Unrated", "B5", "B4", "B3", "B2", "B1", 
@@ -55,3 +56,4 @@ if __name__ == '__main__':
     # host='0.0.0.0'은 외부 모든 접속을 허용한다는 설정 (필수)
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
+
