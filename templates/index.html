@@ -1,46 +1,190 @@
-// ... (이전 코드 동일)
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>업다운 랜디 | randi.ac</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style> .glow { text-shadow: 0 0 15px rgba(168, 85, 247, 0.6); } </style>
+</head>
+<body class="bg-[#0f172a] text-slate-200 min-h-screen flex items-center justify-center p-4">
 
-async function giveUp() {
-    // 사용자에게 한 번 더 확인
-    if (!confirm("정말 이번 문제를 포기하시겠습니까? (티어 하락 및 스트릭 감소)")) return;
+    <div class="w-full max-w-md bg-[#1e293b] rounded-[2rem] shadow-2xl border border-slate-700 overflow-hidden">
+        <div class="bg-gradient-to-br from-indigo-600 to-purple-700 p-8 text-center">
+            <h1 class="text-3xl font-black text-white tracking-tight italic">UP-DOWN</h1>
+            <div id="streak-ui" class="hidden mt-2 text-yellow-400 font-bold tracking-widest">
+                🔥 STREAK: <span id="streak-count">0</span>
+            </div>
+        </div>
 
-    if (state.streak > 0) {
-        // 스트릭이 있으면 1 감소하고 티어 하락 후 새 문제
-        state.streak--;
-        state.tier = Math.max(1, state.tier - 1);
-        alert(`포기하셨습니다. 스트릭 1 감소 (현재: ${state.streak}), 티어 하락.`);
-        await fetchProblem(); // 즉시 다음 문제로 진행
-    } else {
-        // 스트릭이 0인 상태에서 포기해도 초기화 대신 '재도전' 기회를 줌
-        alert("스트릭이 0입니다. 티어만 하락하며 게임을 계속 진행합니다.");
-        state.tier = Math.max(1, state.tier - 1);
-        await fetchProblem(); // 초기화(forceReset) 대신 새 문제를 불러옴
-    }
-}
+        <div class="p-8">
+            <div id="setup-area" class="space-y-4">
+                <input id="handle" type="text" placeholder="백준 아이디 입력" class="w-full bg-[#334155] border-none rounded-xl p-4 outline-none focus:ring-2 ring-indigo-500 text-white">
+                <select id="start-tier" class="w-full bg-[#334155] border-none rounded-xl p-4 outline-none focus:ring-2 ring-indigo-500 text-white"></select>
+                <button onclick="startGame()" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-xl font-bold shadow-lg transition-transform active:scale-95">시작하기</button>
+            </div>
 
-// 기존 forceReset은 'Reset Game' 버튼을 눌렀을 때만 명시적으로 작동하게 유지
-function forceReset() {
-    clearInterval(window.timerInt);
-    state = { isPlaying: false, tier: 13, streak: 0, handle: '', startTime: null, prob: null, isSolved: false };
-    localStorage.removeItem('ud_save');
-    document.getElementById('game-area').classList.add('hidden');
-    document.getElementById('streak-ui').classList.add('hidden');
-    document.getElementById('setup-area').classList.remove('hidden');
-    // document.getElementById('handle').value = ''; // 아이디는 남겨두는게 편합니다.
-}
+            <div id="game-area" class="hidden space-y-6">
+                <div class="flex justify-between items-end">
+                    <div>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Current Tier</p>
+                        <h2 id="display-tier" class="text-4xl font-black text-indigo-400 glow">--</h2>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Time Left</p>
+                        <h2 id="timer" class="text-3xl font-mono font-bold text-rose-500">60:00</h2>
+                    </div>
+                </div>
 
-// 시간 초과 시에도 자동으로 giveUp을 호출하므로 위 로직이 적용됩니다.
-function startTimer() {
-    clearInterval(window.timerInt);
-    window.timerInt = setInterval(() => {
-        const remain = 3600 - Math.floor((Date.now() - state.startTime) / 1000);
-        if(remain <= 0) { 
-            clearInterval(window.timerInt);
-            alert("시간 초과! 다음 문제로 넘어갑니다."); 
-            giveUp(); // 여기서 위에서 수정한 giveUp이 실행됩니다.
+                <div class="bg-[#334155] rounded-2xl p-6 border border-slate-600 text-center">
+                    <p id="prob-no" class="text-xs text-slate-400 mb-1 font-mono uppercase">No. -----</p>
+                    <h3 id="prob-title" class="text-xl font-bold mb-4 text-white">문제를 불러오는 중...</h3>
+                    <a id="prob-link" href="#" target="_blank" class="inline-block bg-indigo-500/20 text-indigo-300 px-6 py-2 rounded-full text-sm font-bold border border-indigo-500/30 hover:bg-indigo-500/40">문제 열기 ➔</a>
+                </div>
+
+                <div id="action-buttons" class="grid grid-cols-2 gap-4">
+                    <button id="btn-check" onclick="checkStatus()" class="bg-emerald-600 hover:bg-emerald-500 py-4 rounded-xl font-bold shadow-lg transition-all text-white">성공 확인</button>
+                    <button id="btn-giveup" onclick="giveUp()" class="bg-rose-600 hover:bg-rose-500 py-4 rounded-xl font-bold shadow-lg transition-all text-white">포기</button>
+                </div>
+                
+                <button id="btn-next" onclick="nextProblem()" class="hidden w-full bg-amber-500 hover:bg-amber-400 py-4 rounded-xl font-bold text-[#1e293b] shadow-lg transition-all animate-bounce">
+                    축하합니다! 다음 단계 시작! ➔
+                </button>
+
+                <button onclick="resetGame()" class="w-full mt-4 bg-slate-800 hover:bg-slate-700 py-3 rounded-xl font-bold text-slate-500 text-[10px] uppercase tracking-[0.2em] transition-all border border-slate-700">
+                    Reset Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TIER_NAMES = ["Unrated", "B5", "B4", "B3", "B2", "B1", "S5", "S4", "S3", "S2", "S1", "G5", "G4", "G3", "G2", "G1", "P5", "P4", "P3", "P2", "P1", "D5", "D4", "D3", "D2", "D1", "R5", "R4", "R3", "R2", "R1"];
+        let state = JSON.parse(localStorage.getItem('ud_save')) || { isPlaying: false, tier: 13, streak: 0, handle: '', startTime: null, prob: null, isSolved: false };
+
+        const select = document.getElementById('start-tier');
+        TIER_NAMES.forEach((n, i) => { if(i>0) select.add(new Option(n, i, false, i===13)) });
+
+        function save() { localStorage.setItem('ud_save', JSON.stringify(state)); }
+
+        window.onload = () => { if(state.isPlaying && state.prob) renderGame(); };
+
+        async function startGame() {
+            state.handle = document.getElementById('handle').value.trim();
+            state.tier = parseInt(select.value);
+            if(!state.handle) return alert("아이디를 입력해주세요!");
+            state.isPlaying = true;
+            state.streak = 0;
+            state.isSolved = false;
+            await fetchProblem();
         }
-        const m = Math.floor(remain/60);
-        const s = (remain%60).toString().padStart(2,'0');
-        document.getElementById('timer').innerText = `${m}:${s}`;
-    }, 1000);
-}
+
+        async function fetchProblem() {
+            try {
+                const res = await fetch(`/get-problem?tier=${state.tier}&handle=${state.handle}`);
+                const data = await res.json();
+                if(data.problemId) {
+                    state.prob = data;
+                    state.startTime = Date.now();
+                    state.isSolved = false;
+                    save();
+                    renderGame();
+                }
+            } catch(e) { alert("문제를 불러오는 데 실패했습니다."); }
+        }
+
+        function renderGame() {
+            document.getElementById('setup-area').classList.add('hidden');
+            document.getElementById('game-area').classList.remove('hidden');
+            document.getElementById('streak-ui').classList.remove('hidden');
+            document.getElementById('streak-count').innerText = state.streak;
+            document.getElementById('display-tier').innerText = TIER_NAMES[state.tier];
+            document.getElementById('prob-no').innerText = `No. ${state.prob.problemId}`;
+            document.getElementById('prob-title').innerText = state.prob.titleKo;
+            document.getElementById('prob-link').href = `https://www.acmicpc.net/problem/${state.prob.problemId}`;
+            
+            if(state.isSolved) {
+                showNextButton();
+            } else {
+                showActionButtons();
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            clearInterval(window.timerInt);
+            window.timerInt = setInterval(() => {
+                const remain = 3600 - Math.floor((Date.now() - state.startTime) / 1000);
+                if(remain <= 0) { 
+                    clearInterval(window.timerInt);
+                    alert("시간 초과! 패널티를 받고 다시 시도합니다."); 
+                    // 시간이 다 되면 자동으로 giveUp 로직 실행
+                    processFailure(); 
+                }
+                const m = Math.floor(remain/60);
+                const s = (remain%60).toString().padStart(2,'0');
+                document.getElementById('timer').innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        async function checkStatus() {
+            const res = await fetch(`/check-status?handle=${state.handle}&problemId=${state.prob.problemId}`);
+            const data = await res.json();
+            if(data.solved) {
+                state.isSolved = true;
+                state.streak++;
+                save();
+                clearInterval(window.timerInt);
+                showNextButton();
+            } else {
+                alert("아직 안 풀었거나 반영 전입니다.");
+            }
+        }
+
+        function showNextButton() {
+            document.getElementById('action-buttons').classList.add('hidden');
+            document.getElementById('btn-next').classList.remove('hidden');
+            document.getElementById('timer').innerText = "DONE!";
+            document.getElementById('timer').className = "text-3xl font-mono font-bold text-emerald-500";
+        }
+
+        function showActionButtons() {
+            document.getElementById('action-buttons').classList.remove('hidden');
+            document.getElementById('btn-next').classList.add('hidden');
+            document.getElementById('timer').className = "text-3xl font-mono font-bold text-rose-500";
+        }
+
+        async function nextProblem() {
+            state.tier = Math.min(30, state.tier + 1);
+            await fetchProblem();
+        }
+
+        // 포기 또는 실패 처리 통합 로직
+        async function processFailure() {
+            if (state.streak > 0) state.streak--;
+            state.tier = Math.max(1, state.tier - 1);
+            save();
+            await fetchProblem();
+        }
+
+        async function giveUp() {
+            if (!confirm("정말 포기하시겠습니까? 티어가 하락하고 새 문제가 배정됩니다.")) return;
+            await processFailure();
+        }
+
+        function forceReset() {
+            clearInterval(window.timerInt);
+            state = { isPlaying: false, tier: 13, streak: 0, handle: '', startTime: null, prob: null, isSolved: false };
+            localStorage.removeItem('ud_save');
+            document.getElementById('game-area').classList.add('hidden');
+            document.getElementById('streak-ui').classList.add('hidden');
+            document.getElementById('setup-area').classList.remove('hidden');
+        }
+
+        function resetGame() {
+            if(!confirm("진행 상황을 모두 삭제하시겠습니까?")) return;
+            forceReset();
+        }
+    </script>
+</body>
+</html>
