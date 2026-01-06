@@ -31,8 +31,8 @@
                         <h2 id="display-tier" class="text-4xl font-black text-indigo-400 glow">--</h2>
                     </div>
                     <div class="text-right">
-                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Time Left</p>
-                        <h2 id="timer" class="text-3xl font-mono font-bold text-rose-500">60:00</h2>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Status</p>
+                        <h2 id="status-text" class="text-2xl font-mono font-bold text-indigo-500">PLAYING</h2>
                     </div>
                 </div>
 
@@ -64,7 +64,7 @@
 
     <script>
         const TIER_NAMES = ["Unrated", "B5", "B4", "B3", "B2", "B1", "S5", "S4", "S3", "S2", "S1", "G5", "G4", "G3", "G2", "G1", "P5", "P4", "P3", "P2", "P1", "D5", "D4", "D3", "D2", "D1", "R5", "R4", "R3", "R2", "R1"];
-        let state = JSON.parse(localStorage.getItem('ud_save')) || { isPlaying: false, tier: 13, streak: 0, handle: '', startTime: null, prob: null, isSolved: false, isFailed: false };
+        let state = JSON.parse(localStorage.getItem('ud_save')) || { isPlaying: false, tier: 13, streak: 0, handle: '', prob: null, isSolved: false, isFailed: false };
 
         const select = document.getElementById('start-tier');
         TIER_NAMES.forEach((n, i) => { if(i>0) select.add(new Option(n, i, false, i===13)) });
@@ -90,7 +90,6 @@
                 const data = await res.json();
                 if(data.problemId) {
                     state.prob = data;
-                    state.startTime = Date.now();
                     state.isSolved = false;
                     state.isFailed = false;
                     save();
@@ -115,23 +114,7 @@
                 showRetryButton();
             } else {
                 showActionButtons();
-                startTimer();
             }
-        }
-
-        function startTimer() {
-            clearInterval(window.timerInt);
-            window.timerInt = setInterval(() => {
-                const remain = 3600 - Math.floor((Date.now() - state.startTime) / 1000);
-                if(remain <= 0) { 
-                    clearInterval(window.timerInt);
-                    alert("시간 초과!"); 
-                    processFailureUI(); 
-                }
-                const m = Math.floor(remain/60);
-                const s = (remain%60).toString().padStart(2,'0');
-                document.getElementById('timer').innerText = `${m}:${s}`;
-            }, 1000);
         }
 
         async function checkStatus() {
@@ -141,7 +124,6 @@
                 state.isSolved = true;
                 state.streak++;
                 save();
-                clearInterval(window.timerInt);
                 showNextButton();
             } else {
                 alert("아직 안 풀었거나 반영 전입니다.");
@@ -152,23 +134,24 @@
             document.getElementById('action-buttons').classList.add('hidden');
             document.getElementById('btn-next').classList.remove('hidden');
             document.getElementById('btn-retry').classList.add('hidden');
-            document.getElementById('timer').innerText = "DONE!";
-            document.getElementById('timer').className = "text-3xl font-mono font-bold text-emerald-500";
+            document.getElementById('status-text').innerText = "CLEAR!";
+            document.getElementById('status-text').className = "text-2xl font-mono font-bold text-emerald-500";
         }
 
         function showRetryButton() {
             document.getElementById('action-buttons').classList.add('hidden');
             document.getElementById('btn-next').classList.add('hidden');
             document.getElementById('btn-retry').classList.remove('hidden');
-            document.getElementById('timer').innerText = "FAILED";
-            document.getElementById('timer').className = "text-3xl font-mono font-bold text-rose-500";
+            document.getElementById('status-text').innerText = "FAILED";
+            document.getElementById('status-text').className = "text-2xl font-mono font-bold text-rose-500";
         }
 
         function showActionButtons() {
             document.getElementById('action-buttons').classList.remove('hidden');
             document.getElementById('btn-next').classList.add('hidden');
             document.getElementById('btn-retry').classList.add('hidden');
-            document.getElementById('timer').className = "text-3xl font-mono font-bold text-rose-500";
+            document.getElementById('status-text').innerText = "PLAYING";
+            document.getElementById('status-text').className = "text-2xl font-mono font-bold text-indigo-500";
         }
 
         async function nextProblem() {
@@ -176,14 +159,12 @@
             await fetchProblem();
         }
 
-        // 포기/실패 시 즉시 버튼을 보여주는 함수
         function processFailureUI() {
             if (state.streak > 0) state.streak--;
             state.tier = Math.max(1, state.tier - 1);
             state.isFailed = true;
             save();
-            clearInterval(window.timerInt);
-            renderGame(); // 화면 갱신해서 retry 버튼 띄움
+            renderGame(); 
         }
 
         async function giveUp() {
@@ -191,14 +172,12 @@
             processFailureUI();
         }
 
-        // 사용자가 '시작' 버튼을 눌렀을 때만 실제 새 문제 가져오기
         async function retryProblem() {
             await fetchProblem();
         }
 
         function forceReset() {
-            clearInterval(window.timerInt);
-            state = { isPlaying: false, tier: 13, streak: 0, handle: '', startTime: null, prob: null, isSolved: false, isFailed: false };
+            state = { isPlaying: false, tier: 13, streak: 0, handle: '', prob: null, isSolved: false, isFailed: false };
             localStorage.removeItem('ud_save');
             document.getElementById('game-area').classList.add('hidden');
             document.getElementById('streak-ui').classList.add('hidden');
